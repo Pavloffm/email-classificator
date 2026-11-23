@@ -144,6 +144,32 @@ class EmailClient:
 
         return f"Subject: {subject}\nFrom: {sender}\n\n{content}".rstrip()
 
+    def get_last_100_email_ids(self) -> list[str]:
+        """Return up to 100 newest inbox email IDs, excluding drafts and sent."""
+        email_ids: list[str] = []
+        page_token = None
+
+        while len(email_ids) < 100:
+            response = (
+                self.gmail.users()
+                .messages()
+                .list(
+                    userId="me",
+                    labelIds=["INBOX"],
+                    q="-in:drafts -in:sent",
+                    maxResults=100 - len(email_ids),
+                    pageToken=page_token,
+                )
+                .execute()
+            )
+            email_ids.extend(message["id"] for message in response.get("messages", []))
+
+            page_token = response.get("nextPageToken")
+            if not page_token:
+                break
+
+        return email_ids
+
 
 def normalize_email_body(body: str, *, is_html: bool = False) -> str:
     """Normalize HTML when applicable, then links and whitespace."""
