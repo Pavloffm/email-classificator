@@ -1,4 +1,3 @@
-# {{Add linters ruff, pyright, setting pre-commit,}} may be github CI
 # Add some wrapper, maybe docker or postman to make more simple init and deploy on any system
 from email_classificator.classificator import classify_email
 from email_classificator.email_client import (

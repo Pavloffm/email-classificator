@@ -1,5 +1,7 @@
 # Email classificator
 Automization of email box.
 
-## First evaluation accuracy
-![](docs/images/first_run_accuracy.png)
+## Evaluation accuracy
+![](docs/images/1_run_accuracy.png)
+
+![](docs/images/2_run_accuracy.png)
