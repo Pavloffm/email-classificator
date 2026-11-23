@@ -22,6 +22,7 @@ htmlcov/
 .env.*
 !.env.example
 secrets/
+.serena/
 
 # Logs and editor/OS files
 *.log
@@ -30,3 +31,4 @@ secrets/
 .DS_Store
 Thumbs.db
 
+data/logs/

@@ -1,26 +1,43 @@
 # {{Add linters ruff, pyright, setting pre-commit,}} may be github CI
 # Add some wrapper, maybe docker or postman to make more simple init and deploy on any system
+from email_classificator.classificator import classify_email
+from email_classificator.email_client import (
+    EmailClient,
+    EmailLabels,
+    normalize_email_body,
+)
 from email_classificator.llm import OllamaLLM
 
 
+def delete_labels():
+    "Dangerous!!! Remove app labels from unread emails received in the last 14 days"
+    client = EmailClient()
+    app_names = {label.value for label in EmailLabels}
+    response = client.gmail.users().labels().list(userId="me").execute()
+    label_ids = [
+        label["id"]
+        for label in response.get("labels", [])
+        if label["name"] in app_names
+    ]
+
+    if not label_ids:
+        return
+
+    for email_id in client.get_unread_unlabeled_email_ids():
+        client.gmail.users().messages().modify(
+            userId="me",
+            id=email_id,
+            body={"removeLabelIds": label_ids},
+        ).execute()
+
+
 def main():
-    # 0. Define llm model that will used everywhere
-    llm = OllamaLLM(model="TODO")  # noqa: F841
-
-    # 1. Get new emails and check status change
-    # Get emails id to classify
-    # Track if user read emails (to_read) and replied to email (need_reply)? change status to done
-    # Filter emails id from persistent project (that already classified)
-    # Get unique emails to classify
-
-    # 2. Classify new email and change their statuses
-    # Classify emails, use Ollama (maybe abstract class with implementation using Ollama, but changable in future easily to another not local provider)
-    # Possible categories: need_reply, is_spam, to_read {EmailStatus}
-    # Save to persistent local storage changes (SQLite3)
-
-    # 3. Process emails that need_reply and make status have_draft
-    # If there is emails to that need_reply than generate Drafts (Using first name surname from .env)
-    # Add drafts to emails
+    llm = OllamaLLM(model="gemma4:e4b")
+    client = EmailClient()
+    for email_id in client.get_unread_unlabeled_email_ids():
+        content = normalize_email_body(client.get_email_content(email_id))
+        label = classify_email(content, llm)
+        client.set_label_for_email(email_id, label)
 
 
 if __name__ == "__main__":

@@ -1,14 +1,33 @@
+import base64
 import os
+import re
+from email import policy
+from email.parser import BytesParser
+from enum import StrEnum
 from pathlib import Path
+from urllib.parse import urlsplit
 
+from bs4 import BeautifulSoup
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 
 
+class EmailLabels(StrEnum):
+    TO_READ = "to_read"
+    NEED_REPLY = "need_reply"
+    IS_SPAM = "is_spam"
+    CAN_SKIP = "can_skip"
+
+
 class EmailClient:
-    SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
+    SCOPES = [
+        "https://www.googleapis.com/auth/gmail.readonly",
+        "https://www.googleapis.com/auth/gmail.compose",
+        "https://www.googleapis.com/auth/gmail.labels",
+        "https://www.googleapis.com/auth/gmail.modify",
+    ]
 
     def __init__(self):
         secrets_dir = (
@@ -16,9 +35,10 @@ class EmailClient:
         )
         self.credentials_path = secrets_dir / "credentials.json"
         self.token_path = secrets_dir / "token.json"
-        self.gmail = None
+        self.gmail = self._build_gmail()
+        self._ensure_labels()
 
-    def init_gmail(self):
+    def _build_gmail(self):
         credentials = None
         if self.token_path.exists():
             credentials = Credentials.from_authorized_user_file(
@@ -37,12 +57,134 @@ class EmailClient:
             self.token_path.write_text(credentials.to_json(), encoding="utf-8")
             self.token_path.chmod(0o600)
 
-        self.gmail = build("gmail", "v1", credentials=credentials)
+        return build("gmail", "v1", credentials=credentials)
 
-    def get_new_emails(self):
-        # Get new emails that was not used by user
-        ...
+    # Not that good in design to adding in email_client, but too much abstractions will be worse for that kind small project
+    def _ensure_labels(self) -> None:
+        labels_api = self.gmail.users().labels()
+        response = labels_api.list(userId="me").execute()
+        existing_names = {label["name"] for label in response.get("labels", [])}
 
-    def create_draft(self):
-        # Create draft for email
-        ...
+        for label in EmailLabels:
+            if label.value not in existing_names:
+                labels_api.create(
+                    userId="me",
+                    body={"name": label.value},
+                ).execute()
+
+    def set_label_for_email(self, email_id: str, label: EmailLabels) -> dict:
+        response = self.gmail.users().labels().list(userId="me").execute()
+
+        label_id = next(
+            item["id"]
+            for item in response.get("labels", [])
+            if item["name"] == label.value
+        )
+
+        return (
+            self.gmail.users()
+            .messages()
+            .modify(
+                userId="me",
+                id=email_id,
+                body={"addLabelIds": [label_id]},
+            )
+            .execute()
+        )
+
+    def get_unread_unlabeled_email_ids(self) -> list[str]:
+        """Find recent unread emails without any app-owned label."""
+        email_ids = []
+        page_token = None
+        query = "is:unread newer_than:14d " + " ".join(
+            f"-label:{label.value}" for label in EmailLabels
+        )
+
+        while True:
+            response = (
+                self.gmail.users()
+                .messages()
+                .list(
+                    userId="me",
+                    q=query,
+                    maxResults=500,
+                    pageToken=page_token,
+                )
+                .execute()
+            )
+
+            email_ids.extend(message["id"] for message in response.get("messages", []))
+
+            page_token = response.get("nextPageToken")
+            if not page_token:
+                return email_ids
+
+    def get_email_content(self, email_id: str) -> str:
+        response = (
+            self.gmail.users()
+            .messages()
+            .get(userId="me", id=email_id, format="raw")
+            .execute()
+        )
+
+        raw = response["raw"]
+        decoded = base64.urlsafe_b64decode(raw + "=" * (-len(raw) % 4))
+        message = BytesParser(policy=policy.default).parsebytes(decoded)
+
+        body = message.get_body(preferencelist=("plain", "html"))
+        content = (
+            normalize_email_body(
+                body.get_content(), is_html=body.get_content_type() == "text/html"
+            )
+            if body
+            else ""
+        )
+        subject = " ".join(str(message.get("Subject", "")).split())
+        sender = " ".join(str(message.get("From", "")).split())
+
+        return f"Subject: {subject}\nFrom: {sender}\n\n{content}".rstrip()
+
+
+def normalize_email_body(body: str, *, is_html: bool = False) -> str:
+    """Normalize HTML when applicable, then links and whitespace."""
+    if is_html:
+        body = normalize_html(body)
+    return normalize_whitespace(normalize_links(body))
+
+
+def normalize_html(body: str) -> str:
+    """Extract readable text and link destinations without markup or styles."""
+    soup = BeautifulSoup(body, "html.parser")
+    for tag in soup.select("head, script, style, template"):
+        tag.decompose()
+
+    for link in soup.select("a[href]"):
+        href = link.get("href")
+        if isinstance(href, str) and href.lower().startswith(("http://", "https://")):
+            link.append(f" ({href})")
+
+    return soup.get_text(separator="\n", strip=True)
+
+
+def normalize_links(body: str) -> str:
+    """Replace URL paths and tracking parameters with hostnames."""
+
+    def replace_url(match: re.Match[str]) -> str:
+        original = match.group()
+        url = original.rstrip(".,;:!?)]}")
+        suffix = original[len(url) :]
+        try:
+            hostname = urlsplit(url if "://" in url else f"https://{url}").hostname
+        except ValueError:
+            return original
+        return f"{hostname}{suffix}" if hostname else original
+
+    return re.sub(
+        r"(?:https?://|www\.)[^\s<>\"']+", replace_url, body, flags=re.IGNORECASE
+    )
+
+
+def normalize_whitespace(body: str) -> str:
+    """Collapse repeated spaces and blank lines while retaining paragraphs."""
+    lines = [" ".join(line.split()) for line in body.splitlines()]
+    return re.sub(r"\n{3,}", "\n\n", "\n".join(lines)).strip()

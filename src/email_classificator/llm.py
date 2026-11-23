@@ -1,5 +1,7 @@
 from abc import ABC, abstractmethod
 
+from langchain_ollama import OllamaLLM as LangChainOllamaLLM
+
 
 class LLM_Provider(ABC):
     @abstractmethod
@@ -10,9 +12,10 @@ class LLM_Provider(ABC):
 
 class OllamaLLM(LLM_Provider):
     def __init__(self, model: str):
-        self.model = model
-        # Create the Ollama client here, once.
+        self.client = LangChainOllamaLLM(
+            model=model,
+            temperature=0.2,
+        )
 
     def generate(self, prompt: str) -> str:
-        # Call Ollama and return only the generated text.
-        raise NotImplementedError("Ollama integration goes here")
+        return self.client.invoke(prompt)
