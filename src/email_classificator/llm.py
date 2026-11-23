@@ -7,6 +7,7 @@ class LLM_Provider(ABC):
         """Generate text or raise an exception on failure."""
         ...
 
+
 class OllamaLLM(LLM_Provider):
     def __init__(self, model: str):
         self.model = model

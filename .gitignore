@@ -17,10 +17,11 @@ dist/
 .coverage.*
 htmlcov/
 
-# Local secrets (keep example configuration tracked)
+# Local secrets
 .env
 .env.*
 !.env.example
+secrets/
 
 # Logs and editor/OS files
 *.log
@@ -28,3 +29,4 @@ htmlcov/
 .vscode/
 .DS_Store
 Thumbs.db
+
