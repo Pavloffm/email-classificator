@@ -1,0 +1,20 @@
+[project]
+name = "email-classificator"
+version = "0.1.0"
+description = "Email classification project."
+readme = "README.md"
+authors = []
+requires-python = ">=3.12"
+dependencies = [
+    "langchain>=1.5.2",
+    "langchain-anthropic>=1.7.12",
+    "langchain-ollama>=1.1.0",
+    "langgraph>=1.2.24",
+]
+
+[project.scripts]
+email-classificator = "email_classificator:main"
+
+[build-system]
+requires = ["uv_build>=0.13.7,<0.14.0"]
+build-backend = "uv_build"
