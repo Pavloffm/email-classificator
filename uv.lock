@@ -399,6 +399,7 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "beautifulsoup4" },
+    { name = "filelock" },
     { name = "google-api-python-client" },
     { name = "google-auth" },
     { name = "google-auth-oauthlib" },
@@ -420,6 +421,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "beautifulsoup4", specifier = ">=4.15.0" },
+    { name = "filelock", specifier = ">=3.20" },
     { name = "google-api-python-client", specifier = ">=2.202.0" },
     { name = "google-auth", specifier = ">=2.63.1" },
     { name = "google-auth-oauthlib", specifier = ">=1.5.0" },

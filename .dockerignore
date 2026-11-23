@@ -1,0 +1,12 @@
+# Allow only the files needed to build the application.
+**
+!Dockerfile
+!pyproject.toml
+!uv.lock
+!README.md
+!src/
+!src/**
+
+**/__pycache__/
+**/*.py[cod]
+**/tests/

@@ -29,18 +29,19 @@ class EmailClient:
         "https://www.googleapis.com/auth/gmail.modify",
     ]
 
-    def __init__(self):
+    def __init__(self, *, interactive: bool = True, reauthorize: bool = False):
+        self.interactive = interactive
         secrets_dir = (
             Path(os.environ.get("EMAIL_SECRETS_DIR", "secrets")).expanduser().resolve()
         )
         self.credentials_path = secrets_dir / "credentials.json"
         self.token_path = secrets_dir / "token.json"
-        self.gmail = self._build_gmail()
+        self.gmail = self._build_gmail(reauthorize=reauthorize)
         self._ensure_labels()
 
-    def _build_gmail(self):
+    def _build_gmail(self, *, reauthorize: bool = False):
         credentials = None
-        if self.token_path.exists():
+        if self.token_path.exists() and not reauthorize:
             credentials = Credentials.from_authorized_user_file(
                 str(self.token_path), self.SCOPES
             )
@@ -49,6 +50,11 @@ class EmailClient:
             if credentials and credentials.expired and credentials.refresh_token:
                 credentials.refresh(Request())
             else:
+                if not self.interactive:
+                    raise RuntimeError(
+                        "Gmail authorization required. Run 'email-classificator auth' "
+                        "on a desktop and deploy secrets/token.json before scheduling."
+                    )
                 flow = InstalledAppFlow.from_client_secrets_file(
                     str(self.credentials_path), self.SCOPES
                 )
