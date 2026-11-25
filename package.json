@@ -1,0 +1,30 @@
+{
+  "name": "email-classificator",
+  "version": "1.0.0",
+  "description": "Turn unread Gmail messages into a labeled to-do list: reply, read, skip, or flag as spam. Powered by a local LLM through Ollama.",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "prepare": "husky"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Pavloffm/email-classificator.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Pavloffm/email-classificator/issues"
+  },
+  "homepage": "https://github.com/Pavloffm/email-classificator#readme",
+  "devDependencies": {
+    "@commitlint/cli": "^21.2.4",
+    "@commitlint/config-conventional": "^21.2.4",
+    "husky": "^9.1.7"
+  }
+}
